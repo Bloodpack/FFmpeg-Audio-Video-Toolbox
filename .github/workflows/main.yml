@@ -13,19 +13,37 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    # KORREKTUR: depth-Zuweisung für stabilen Node24-Runner angepasst
     - name: Checkout Code
-      uses: actions/checkout@v4.1.7 
+      uses: actions/checkout@v4
       with:
-        fetch-depth: 0 
+        fetch-depth: 0 # Holt die gesamte Git-Historie für die Versionszählung
 
-    - name: Bump version and push tag
-      id: tag_version
-      uses: anothrNick/github-tag-action@1.71.0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        WITH_V: true
-        DEFAULT_BUMP: patch 
+    # REPARATUR: Rein plattformunabhängige PowerShell-Logik zur Versionsberechnung
+    - name: Calculate Next Version Tag
+      id: calculate_tag
+      shell: powershell
+      run: |
+        # Letztes Tag abrufen, Standard auf v1.0.0 setzen falls keins existiert
+        $latestTag = git describe --tags --abbrev=0 2>$null
+        if ($null -eq $latestTag) { $latestTag = "v1.0.0" }
+        
+        # Version aufsplitten und die letzte Ziffer (Patch) erhöhen
+        if ($latestTag -match 'v(\d+)\.(\d+)\.(\d+)') {
+            $major = [int]$Matches[1]
+            $minor = [int]$Matches[2]
+            $patch = [int]$Matches[3] + 1
+            $newTag = "v$major.$minor.$patch"
+            $versionClean = "$major.$minor.$patch.0"
+        } else {
+            $newTag = "v1.0.1"
+            $versionClean = "1.0.1.0"
+        }
+        
+        Write-Host "Nächste Version berechnet: $newTag"
+        
+        # Werte sicher an die nächsten Schritte übergeben
+        "new_tag=$newTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        "version_clean=$versionClean" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
     - name: Install PS2EXE Compiler
       shell: powershell
@@ -36,20 +54,19 @@ jobs:
     - name: Compile PowerShell Script to EXE
       shell: powershell
       run: |
-        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox_${{ steps.tag_version.outputs.new_tag }}.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox ${{ steps.tag_version.outputs.new_tag }}" -productVersion "${{ steps.tag_version.outputs.new_tag }}" -fileVersion "${{ steps.tag_version.outputs.version }}"
+        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox_${{ steps.calculate_tag.outputs.new_tag }}.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox ${{ steps.calculate_tag.outputs.new_tag }}" -productVersion "${{ steps.calculate_tag.outputs.new_tag }}" -fileVersion "${{ steps.calculate_tag.outputs.version_clean }}"
 
-    # KORREKTUR: Aktualisiert auf v2.0.6 für volle native Node24-Unterstützung
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2.0.6
+      uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ steps.tag_version.outputs.new_tag }}
-        name: Release ${{ steps.tag_version.outputs.new_tag }}
+        tag_name: ${{ steps.calculate_tag.outputs.new_tag }}
+        name: Release ${{ steps.calculate_tag.outputs.new_tag }}
         body: |
-          Automatischer Build der Version ${{ steps.tag_version.outputs.new_tag }}.
-          In dieser Version wurden alle Änderungen aus dem letzten Code-Push verarbeitet.
+          Automatischer Windows-Build für Version ${{ steps.calculate_tag.outputs.new_tag }}.
+          Alle Änderungen aus dem letzten Code-Push wurden erfolgreich einkompiliert.
         draft: false
         prerelease: false
         files: |
-          .\FFmpeg_Toolbox_${{ steps.tag_version.outputs.new_tag }}.exe
+          .\FFmpeg_Toolbox_${{ steps.calculate_tag.outputs.new_tag }}.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
