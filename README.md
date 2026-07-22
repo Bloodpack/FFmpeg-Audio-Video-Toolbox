@@ -6,48 +6,60 @@ Eine komfortable, grafische Windows-Oberfläche für PowerShell, um Audio- und V
 
 ---
 
+## ⚠️ WICHTIGER WARNHINWEIS & HAFTUNGSAUSSCHLUSS / DISCLAIMER
+
+### 🚨 Deutsch:
+* **Führen Sie diesen Code oder die daraus resultierende Anwendung nicht aus, wenn Sie die Funktionsweise des Skripts nicht vollständig verstehen!** 
+* Das Skript interagiert direkt mit Ihren Mediendateien und Systemprozessen. Unbedachte Modifikationen am Code können zu unerwartetem Verhalten oder Datenverlust führen.
+* **Haftungsausschluss:** Die Bereitstellung erfolgt absolut ohne Mängelgewähr. Der Autor übernimmt keinerlei Haftung oder Verantwortung für etwaige Schäden, Systemabstürze, Datenverlust oder fehlerhaft konvertierte Medien, die durch die Nutzung dieses Tools entstehen. Die Nutzung erfolgt vollständig auf eigene Gefahr und eigenes Risiko.
+
+### 🚨 English:
+* **Do not execute this code or the compiled application unless you fully understand its mechanics and logic!**
+* This script directly interacts with your media files and system processes. Unintended code modifications may cause unexpected behavior or data loss.
+* **Disclaimer:** This tool is provided "as is", without warranty of any kind. The author assumes no liability or responsibility for any damages, data loss, system instability, or corrupted media resulting from the use or misuse of this software. You are using this tool entirely at your own risk.
+
+---
+
 ## 🌟 Key Features / Hauptfunktionen
 
-* **🔊 Deutsch 5.1 Center-Boost (Format-Erhalt)**
-  * Automatically detects the German audio track, regardless of its position in the container.
-  * Boosts the center channel volume by a factor of **1.4** for significantly improved dialogue clarity on soundbars/TVs.
-  * Preserves the original audio format (DTS stays DTS, AC3 stays AC3) at maximum bitrate.
-  * **Intelligent Muxing via MKVToolNix:** Completely discards the old, quiet audio track and sets the optimized track as default. 
-  * *Dolby Vision, HDR10+, and all subtitles remain 100% intact!*
+* **🔊 Deutsch 5.1 Center-Boost [Format-Erhalt]**
+  * Findet vollautomatisch die deutsche Tonspur, egal an welcher Position sie liegt.
+  * Erhöht die Lautstärke des Center-Kanals um den Faktor **1.4** für deutlich bessere Sprachverständlichkeit bei Soundbars/Fernsehern.
+  * Behält das Original-Format (DTS bleibt DTS, AC3 bleibt AC3) bei maximaler Bitrate bei.
+  * **Muxing via MKVToolNix:** Verwirft die alte Tonspur und setzt die optimierte Spur als Standard. Dolby Vision, HDR10+ und Untertitel bleiben zu 100% intakt.
 
-* **⚡ H.264 Conversion via OpenCL [GPU]**
-  * Hardware-accelerated encoding using the cross-platform OpenCL pipeline.
-  * Designed specifically as an ultra-stable option for **older NVIDIA graphics cards (e.g., GTX 1070 Ti, GTX 1060)** or systems with legacy drivers (v500 series).
-  * Automatically applies a 10-bit to 8-bit color downsampling filter to prevent encoding crashes on older hardware architecture.
+* **⚡ H.264 Konvertierung via OpenCL [GPU]**
+  * Hardwarebeschleunigtes Encodieren über die universelle OpenCL-Pipeline.
+  * Ideal als ultra-stabile Option für **ältere Grafikkarten (z.B. GTX 1070 Ti, GTX 1060)** mit älteren v500 Treibern. 
+  * Rechnet 10-Bit HDR Videos automatisch in treiberkonformes 8-Bit um, um Abstürze zu vermeiden.
 
-* **🚀 H.265 Conversion via NVIDIA NVENC [GPU]**
-  * High-speed hardware encoding for **modern NVIDIA graphics cards** (RTX series / drivers v610+).
+* **🚀 H.265 Konvertierung via NVIDIA NVENC [GPU]**
+  * Blitzschnelle Hardware-Konvertierung für **moderne NVIDIA-Grafikkarten** (RTX-Serie / Treiber ab v610+).
 
-* **💎 H.265 Conversion via libx265 [CPU]**
-  * High-quality software encoding using the processor for maximum compression and pristine image quality.
+* **💎 H.265 Konvertierung via libx265 [CPU]**
+  * Hochqualitative Software-Konvertierung über den Prozessor für minimale Dateigrößen und beste Bildqualität.
 
-* **🛑 Smart Anti-Freeze & Real-Time Abort**
-  * The GUI is completely decoupled from the processing background tasks. It will never freeze or show "Not Responding".
-  * The **"Vorgang abbrechen"** (Cancel Process) button instantly terminates all background instances and safely cleans up incomplete temporary file fragments from your disk.
+* **🛑 Flüssige GUI & Sofort-Abbruch**
+  * Die Oberfläche friert während der Verarbeitung niemals ein („Keine Rückmeldung“ ist ausgeschlossen).
+  * Der **„Vorgang abbrechen“**-Button beendet alle Hintergrundprozesse sofort und löscht angefangene Datei-Fragmente sauber von der Festplatte.
 
 ---
 
 ## ⚙️ Requirements & Auto-Installer / Voraussetzungen
 
-The compiled tool runs directly as a standalone `.exe` on Windows 10 & 11. It automatically checks for core requirements upon startup:
-* **FFmpeg** (For audio and video filtering)
-* **MKVToolNix** (For container parsing and structural track mapping)
+Das Tool läuft ohne Installation direkt als eigenständige `.exe` unter Windows 10 & 11. Es prüft beim Start vollautomatisch das Vorhandensein der Systemwerkzeuge:
+* **FFmpeg** (Für die Audio- und Videobearbeitung)
+* **MKVToolNix** (Für das fehlerfreie Zusammensetzen der Container)
 
-*If these dependencies are missing, the tool will safely prompt you to install them automatically with one click via Microsoft's official `winget` manager.*
+*Sollten die Komponenten fehlen, bietet das Tool an, diese mit einem Klick automatisch über den offiziellen Microsoft Paketmanager `winget` einzurichten.*
 
 ---
 
 ## 📦 Download & Usage / Verwendung
 
-1. Go to the **Actions** tab of this repository.
-2. Click on the latest successful workflow run.
-3. Scroll down to **Artifacts** and download the compiled **`FFmpeg_Toolbox_Windows.zip`**.
-4. Extract the ZIP, start the `.exe`, select your MKV files, choose your desired quality profile, and hit **"Aktion ausführen"**.
+1. Klicke oben auf den Reiter **Releases** auf der rechten Seite dieses Repositories.
+2. Lade dir die neueste fertig compilierte **`FFmpeg_Toolbox_vX.X.X.exe`** herunter.
+3. Wähle deine MKV-Dateien, lege die Qualitätsstufe fest und klicke auf **„Aktion ausführen“**.
 
 ---
 Developed with 🛠️, PowerShell, and .NET Diagnostics Pipelines.
