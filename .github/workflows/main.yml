@@ -18,20 +18,22 @@ jobs:
       with:
         fetch-depth: 0 
 
-    # REPARATUR: Try/Catch-Absicherung für leere Repositories ohne existierende Tags
+    # REPARATUR: Verhindert den Exit-Code-1 Abbruch durch Stummschaltung des Fehlerkanals auf PowerShell-Ebene
     - name: Calculate Next Version Tag
       id: calculate_tag
       shell: powershell
       run: |
+        # Verhindert, dass native Fehlerkanäle (Stderr) zum Abbruch führen
+        $ErrorActionPreference = 'SilentlyContinue'
+        
         $latestTag = "v1.0.0"
-        try {
-            # Nutzt invoke-expression und leitet den fatal-Error ins Leere um, damit PowerShell nicht abbricht
-            $gitOut = Invoke-Expression "git describe --tags --abbrev=0" 2>$null
+        
+        # Git-Befehl absolut sicher ausführen
+        if (git tag) {
+            $gitOut = git describe --tags --abbrev=0 2>$null
             if ($gitOut -and $gitOut -match 'v\d+') {
                 $latestTag = $gitOut.Trim()
             }
-        } catch {
-            $latestTag = "v1.0.0"
         }
         
         # Version aufsplitten und die letzte Ziffer (Patch) erhöhen
@@ -46,9 +48,9 @@ jobs:
             $versionClean = "1.0.1.0"
         }
         
-        Write-Host "Nächste Version berechnet: $newTag"
+        Write-Host "Naechste Version berechnet: $newTag"
         
-        # Werte sicher an die nächsten Schritte übergeben
+        # Werte sicher an die naechsten Schritte uebergeben
         "new_tag=$newTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
         "version_clean=$versionClean" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
@@ -69,8 +71,8 @@ jobs:
         tag_name: ${{ steps.calculate_tag.outputs.new_tag }}
         name: Release ${{ steps.calculate_tag.outputs.new_tag }}
         body: |
-          Automatischer Windows-Build für Version ${{ steps.calculate_tag.outputs.new_tag }}.
-          Alle Änderungen aus dem letzten Code-Push wurden erfolgreich einkompiliert.
+          Automatischer Windows-Build fuer Version ${{ steps.calculate_tag.outputs.new_tag }}.
+          Alle Aenderungen aus dem letzten Code-Push wurden erfolgreich einkompiliert.
         draft: false
         prerelease: false
         files: |
