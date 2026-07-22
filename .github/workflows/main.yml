@@ -23,7 +23,6 @@ jobs:
       shell: powershell
       run: |
         $ErrorActionPreference = 'SilentlyContinue'
-        
         $latestTag = "v1.0.0"
         
         if (git tag) {
@@ -45,7 +44,6 @@ jobs:
         }
         
         Write-Host "Naechste Version berechnet: $newTag"
-        
         "new_tag=$newTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
         "version_clean=$versionClean" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
@@ -58,8 +56,8 @@ jobs:
     - name: Compile PowerShell Script to EXE
       shell: powershell
       run: |
-        # KORREKTUR: Parameter auf die von ps2exe unterstuetzte Syntax korrigiert (-version und -company statt -productVersion)
-        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox_${{ steps.calculate_tag.outputs.new_tag }}.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox ${{ steps.calculate_tag.outputs.new_tag }}" -version "${{ steps.calculate_tag.outputs.version_clean }}" -company "Horst Zimmermann"
+        # FIX: -noConsole hinzugefügt, um das schwarze CMD-Fenster beim Starten komplett zu unterdrücken
+        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox_${{ steps.calculate_tag.outputs.new_tag }}.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox ${{ steps.calculate_tag.outputs.new_tag }}" -version "${{ steps.calculate_tag.outputs.version_clean }}" -company "Horst Zimmermann" -noConsole
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
@@ -68,7 +66,7 @@ jobs:
         name: Release ${{ steps.calculate_tag.outputs.new_tag }}
         body: |
           Automatischer Windows-Build fuer Version ${{ steps.calculate_tag.outputs.new_tag }}.
-          Alle Aenderungen aus dem letzten Code-Push wurden erfolgreich einkompiliert.
+          In dieser Version wird das CMD-Fenster beim Starten der Anwendung vollständig unterdrückt.
         draft: false
         prerelease: false
         files: |
