@@ -16,16 +16,23 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0 # Holt die gesamte Git-Historie für die Versionszählung
+        fetch-depth: 0 
 
-    # REPARATUR: Rein plattformunabhängige PowerShell-Logik zur Versionsberechnung
+    # REPARATUR: Try/Catch-Absicherung für leere Repositories ohne existierende Tags
     - name: Calculate Next Version Tag
       id: calculate_tag
       shell: powershell
       run: |
-        # Letztes Tag abrufen, Standard auf v1.0.0 setzen falls keins existiert
-        $latestTag = git describe --tags --abbrev=0 2>$null
-        if ($null -eq $latestTag) { $latestTag = "v1.0.0" }
+        $latestTag = "v1.0.0"
+        try {
+            # Nutzt invoke-expression und leitet den fatal-Error ins Leere um, damit PowerShell nicht abbricht
+            $gitOut = Invoke-Expression "git describe --tags --abbrev=0" 2>$null
+            if ($gitOut -and $gitOut -match 'v\d+') {
+                $latestTag = $gitOut.Trim()
+            }
+        } catch {
+            $latestTag = "v1.0.0"
+        }
         
         # Version aufsplitten und die letzte Ziffer (Patch) erhöhen
         if ($latestTag -match 'v(\d+)\.(\d+)\.(\d+)') {
@@ -70,3 +77,4 @@ jobs:
           .\FFmpeg_Toolbox_${{ steps.calculate_tag.outputs.new_tag }}.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
