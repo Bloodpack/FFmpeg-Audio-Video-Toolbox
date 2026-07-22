@@ -1,0 +1,31 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Install PS2EXE Compiler
+      shell: powershell
+      run: |
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
+        Install-Module -Name ps2exe -Scope CurrentUser -Force
+
+    - name: Compile PowerShell Script to EXE
+      shell: powershell
+      run: |
+        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox"
+
+    - name: Upload Finished EXE as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: FFmpeg_Toolbox_Windows
+        path: .\FFmpeg_Toolbox.exe
