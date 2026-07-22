@@ -241,8 +241,6 @@ $buttonStart.Add_Click({
 
     $currentFileIndex = 0
     $baseFolder = [System.IO.Path]::GetDirectoryName($global:SelectedFiles)
-
-    # Präzise Ermittlung des Windows-Temp-Pfades für den OpenCL-Müllschutz
     $rawTempPath = [System.IO.Path]::GetTempPath()
     $safeTempPath = $rawTempPath.Replace('\', '\\')
 
@@ -296,13 +294,21 @@ $buttonStart.Add_Click({
 
             if ($comboBox.SelectedIndex -eq 1) {
                 Write-GuiLog "[$currentFileIndex/$totalFiles] Encodiere Video via GPU (OpenCL Beschleunigung)..."
-                # ANPASSUNG: Cache-Verzeichnis sauber in den System-Temp-Ordner umgeleitet
                 $argsList = "-y -i `"$filePath`" -map 0 -c:v libx264 -x264opts `"opencl=1:opencl_cache_dir=$safeTempPath`" -b:v $targetBitrate -maxrate 25M -bufsize 20M -pix_fmt yuv420p -c:a copy -c:s copy `"$outFile`""
                 Invoke-SilencedProcess "ffmpeg" $argsList
+                
+                # REPARATUR FALLBACK: Falls das Video-Profil (L4.0) OpenCL blockiert und die Datei 0KB groß bleibt:
+                if ((!(Test-Path -LiteralPath $outFile) -or (Get-Item -LiteralPath $outFile).Length -eq 0) -and !$global:AbortRequested) {
+                    Write-GuiLog "-> OpenCL vom Video-Profil blockiert. Schalte automatisch auf stabilen H.264 Standard-Modus um..."
+                    if (Test-Path $outFile) { Remove-Item $outFile -Force }
+                    
+                    $fallbackArgs = "-y -i `"$filePath`" -map 0 -c:v libx264 -b:v $targetBitrate -maxrate 25M -bufsize 20M -pix_fmt yuv420p -c:a copy -c:s copy `"$outFile`""
+                    Invoke-DetachedProcess "ffmpeg" $fallbackArgs
+                }
             }
             elseif ($comboBox.SelectedIndex -eq 2) {
                 Write-GuiLog "[$currentFileIndex/$totalFiles] Encodiere Video via NVIDIA H.265 NVENC (GPU)..."
-                $argsList = "-y -i `"$filePath`" -map 0 -c:v hevc_nvenc -b:v $targetBitrate -maxrate 25M -bufsize 20M -c:a copy -c:s copy `"$outFile`""
+                $argsList = "-y -i `"$filePath`" -map 0 -c:v hevc_nvenc -b:v $targetBitrate -maxrate 25M -bufsize 20M -pix_fmt p010le -c:a copy -c:s copy `"$outFile`""
                 Invoke-SilencedProcess "ffmpeg" $argsList
             }
             else {
@@ -318,7 +324,6 @@ $buttonStart.Add_Click({
     }
     
     $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
-    
     if ($global:AbortRequested) {
         $labelStatus.Text = "Status: Abgebrochen"
         Write-GuiLog "`r`n--- VORGANG VOM NUTZER ABGEBROCHEN ---"
