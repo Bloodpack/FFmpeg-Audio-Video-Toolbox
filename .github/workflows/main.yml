@@ -18,17 +18,14 @@ jobs:
       with:
         fetch-depth: 0 
 
-    # REPARATUR: Verhindert den Exit-Code-1 Abbruch durch Stummschaltung des Fehlerkanals auf PowerShell-Ebene
     - name: Calculate Next Version Tag
       id: calculate_tag
       shell: powershell
       run: |
-        # Verhindert, dass native Fehlerkanäle (Stderr) zum Abbruch führen
         $ErrorActionPreference = 'SilentlyContinue'
         
         $latestTag = "v1.0.0"
         
-        # Git-Befehl absolut sicher ausführen
         if (git tag) {
             $gitOut = git describe --tags --abbrev=0 2>$null
             if ($gitOut -and $gitOut -match 'v\d+') {
@@ -36,7 +33,6 @@ jobs:
             }
         }
         
-        # Version aufsplitten und die letzte Ziffer (Patch) erhöhen
         if ($latestTag -match 'v(\d+)\.(\d+)\.(\d+)') {
             $major = [int]$Matches[1]
             $minor = [int]$Matches[2]
@@ -50,7 +46,6 @@ jobs:
         
         Write-Host "Naechste Version berechnet: $newTag"
         
-        # Werte sicher an die naechsten Schritte uebergeben
         "new_tag=$newTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
         "version_clean=$versionClean" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
@@ -63,7 +58,8 @@ jobs:
     - name: Compile PowerShell Script to EXE
       shell: powershell
       run: |
-        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox_${{ steps.calculate_tag.outputs.new_tag }}.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox ${{ steps.calculate_tag.outputs.new_tag }}" -productVersion "${{ steps.calculate_tag.outputs.new_tag }}" -fileVersion "${{ steps.calculate_tag.outputs.version_clean }}"
+        # KORREKTUR: Parameter auf die von ps2exe unterstuetzte Syntax korrigiert (-version und -company statt -productVersion)
+        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox_${{ steps.calculate_tag.outputs.new_tag }}.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox ${{ steps.calculate_tag.outputs.new_tag }}" -version "${{ steps.calculate_tag.outputs.version_clean }}" -company "Horst Zimmermann"
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
@@ -79,4 +75,3 @@ jobs:
           .\FFmpeg_Toolbox_${{ steps.calculate_tag.outputs.new_tag }}.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
