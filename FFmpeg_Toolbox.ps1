@@ -169,7 +169,8 @@ $buttonBrowse.Add_Click({
     $fileBrowser.Multiselect = $true
     if ($fileBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
         $global:SelectedFiles = $fileBrowser.FileNames
-        $textBoxFolder.Text = [System.IO.Path]::GetDirectoryName($global:SelectedFiles)
+        # FIX: Holt den Überordner sicher aus der allerersten Datei der Liste
+        $textBoxFolder.Text = [System.IO.Path]::GetDirectoryName($global:SelectedFiles[0])
         $labelStatus.Text = "Status: Bereit zum Starten"
         $buttonStart.Enabled = $true
         $textBoxLog.Clear()
@@ -240,7 +241,8 @@ $buttonStart.Add_Click({
     else { $targetBitrate = "6M"; $crfValue = 22 }
 
     $currentFileIndex = 0
-    $baseFolder = [System.IO.Path]::GetDirectoryName($global:SelectedFiles)
+    # FIX: Extrahiert den Basisordner für das gesamte Batch-Verfahren aus der ersten Datei im Array
+    $baseFolder = [System.IO.Path]::GetDirectoryName($global:SelectedFiles[0])
     $rawTempPath = [System.IO.Path]::GetTempPath()
     $safeTempPath = $rawTempPath.Replace('\', '\\')
 
@@ -297,7 +299,6 @@ $buttonStart.Add_Click({
                 $argsList = "-y -i `"$filePath`" -map 0 -c:v libx264 -x264opts `"opencl=1:opencl_cache_dir=$safeTempPath`" -b:v $targetBitrate -maxrate 25M -bufsize 20M -pix_fmt yuv420p -c:a copy -c:s copy `"$outFile`""
                 Invoke-SilencedProcess "ffmpeg" $argsList
                 
-                # REPARATUR: Name auf den korrekten Funktionsnamen Invoke-SilencedProcess angepasst
                 if ((!(Test-Path -LiteralPath $outFile) -or (Get-Item -LiteralPath $outFile).Length -eq 0) -and !$global:AbortRequested) {
                     $textBoxLog.AppendText("-> OpenCL vom Video-Profil blockiert. Schalte automatisch auf stabilen H.264 Standard-Modus um...`r`n")
                     if (Test-Path $outFile) { Remove-Item $outFile -Force }
