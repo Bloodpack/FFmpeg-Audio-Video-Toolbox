@@ -297,13 +297,13 @@ $buttonStart.Add_Click({
                 $argsList = "-y -i `"$filePath`" -map 0 -c:v libx264 -x264opts `"opencl=1:opencl_cache_dir=$safeTempPath`" -b:v $targetBitrate -maxrate 25M -bufsize 20M -pix_fmt yuv420p -c:a copy -c:s copy `"$outFile`""
                 Invoke-SilencedProcess "ffmpeg" $argsList
                 
-                # REPARATUR FALLBACK: Falls das Video-Profil (L4.0) OpenCL blockiert und die Datei 0KB groß bleibt:
+                # REPARATUR: Name auf den korrekten Funktionsnamen Invoke-SilencedProcess angepasst
                 if ((!(Test-Path -LiteralPath $outFile) -or (Get-Item -LiteralPath $outFile).Length -eq 0) -and !$global:AbortRequested) {
-                    Write-GuiLog "-> OpenCL vom Video-Profil blockiert. Schalte automatisch auf stabilen H.264 Standard-Modus um..."
+                    $textBoxLog.AppendText("-> OpenCL vom Video-Profil blockiert. Schalte automatisch auf stabilen H.264 Standard-Modus um...`r`n")
                     if (Test-Path $outFile) { Remove-Item $outFile -Force }
                     
                     $fallbackArgs = "-y -i `"$filePath`" -map 0 -c:v libx264 -b:v $targetBitrate -maxrate 25M -bufsize 20M -pix_fmt yuv420p -c:a copy -c:s copy `"$outFile`""
-                    Invoke-DetachedProcess "ffmpeg" $fallbackArgs
+                    Invoke-SilencedProcess "ffmpeg" $fallbackArgs
                 }
             }
             elseif ($comboBox.SelectedIndex -eq 2) {
