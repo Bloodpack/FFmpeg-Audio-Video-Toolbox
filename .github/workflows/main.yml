@@ -1,17 +1,31 @@
-name: Build Windows EXE
+name: Build Windows EXE with Auto-Versioning
 
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
+    # KORREKTUR: depth-Zuweisung für stabilen Node24-Runner angepasst
     - name: Checkout Code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4.1.7 
+      with:
+        fetch-depth: 0 
+
+    - name: Bump version and push tag
+      id: tag_version
+      uses: anothrNick/github-tag-action@1.71.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        WITH_V: true
+        DEFAULT_BUMP: patch 
 
     - name: Install PS2EXE Compiler
       shell: powershell
@@ -22,10 +36,20 @@ jobs:
     - name: Compile PowerShell Script to EXE
       shell: powershell
       run: |
-        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox"
+        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox_${{ steps.tag_version.outputs.new_tag }}.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox ${{ steps.tag_version.outputs.new_tag }}" -productVersion "${{ steps.tag_version.outputs.new_tag }}" -fileVersion "${{ steps.tag_version.outputs.version }}"
 
-    - name: Upload Finished EXE as Artifact
-      uses: actions/upload-artifact@v4
+    # KORREKTUR: Aktualisiert auf v2.0.6 für volle native Node24-Unterstützung
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2.0.6
       with:
-        name: FFmpeg_Toolbox_Windows
-        path: .\FFmpeg_Toolbox.exe
+        tag_name: ${{ steps.tag_version.outputs.new_tag }}
+        name: Release ${{ steps.tag_version.outputs.new_tag }}
+        body: |
+          Automatischer Build der Version ${{ steps.tag_version.outputs.new_tag }}.
+          In dieser Version wurden alle Änderungen aus dem letzten Code-Push verarbeitet.
+        draft: false
+        prerelease: false
+        files: |
+          .\FFmpeg_Toolbox_${{ steps.tag_version.outputs.new_tag }}.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
