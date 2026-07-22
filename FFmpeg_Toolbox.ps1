@@ -128,7 +128,7 @@ $labelStatus.Text = "Status: Bitte Dateien auswählen"
 $form.Controls.Add($labelStatus)
 
 $textBoxLog = New-Object System.Windows.Forms.TextBox
-$textBoxLog.Location = New-Object System.Drawing.Point(20, 225) # REPARATUR: Falschen "Exhibition"-Typverweis entfernt
+$textBoxLog.Location = New-Object System.Drawing.Point(20, 225)
 $textBoxLog.Size = New-Object System.Drawing.Size(480, 150)
 $textBoxLog.MultiLine = $true
 $textBoxLog.ScrollBars = "Vertical"
@@ -242,6 +242,10 @@ $buttonStart.Add_Click({
     $currentFileIndex = 0
     $baseFolder = [System.IO.Path]::GetDirectoryName($global:SelectedFiles)
 
+    # Präzise Ermittlung des Windows-Temp-Pfades für den OpenCL-Müllschutz
+    $rawTempPath = [System.IO.Path]::GetTempPath()
+    $safeTempPath = $rawTempPath.Replace('\', '\\')
+
     foreach ($filePath in $global:SelectedFiles) {
         if ($global:AbortRequested) { break }
         $currentFileIndex++
@@ -292,7 +296,8 @@ $buttonStart.Add_Click({
 
             if ($comboBox.SelectedIndex -eq 1) {
                 Write-GuiLog "[$currentFileIndex/$totalFiles] Encodiere Video via GPU (OpenCL Beschleunigung)..."
-                $argsList = "-y -i `"$filePath`" -map 0 -c:v libx264 -x264opts opencl=1 -b:v $targetBitrate -maxrate 25M -bufsize 20M -pix_fmt yuv420p -c:a copy -c:s copy `"$outFile`""
+                # ANPASSUNG: Cache-Verzeichnis sauber in den System-Temp-Ordner umgeleitet
+                $argsList = "-y -i `"$filePath`" -map 0 -c:v libx264 -x264opts `"opencl=1:opencl_cache_dir=$safeTempPath`" -b:v $targetBitrate -maxrate 25M -bufsize 20M -pix_fmt yuv420p -c:a copy -c:s copy `"$outFile`""
                 Invoke-SilencedProcess "ffmpeg" $argsList
             }
             elseif ($comboBox.SelectedIndex -eq 2) {
