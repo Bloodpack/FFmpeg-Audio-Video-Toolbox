@@ -33,9 +33,9 @@ jobs:
         }
         
         if ($latestTag -match 'v(\d+)\.(\d+)\.(\d+)') {
-            $major = [int]$Matches[1]
-            $minor = [int]$Matches[2]
-            $patch = [int]$Matches[3] + 1
+            $major = [int]$Matches
+            $minor = [int]$Matches
+            $patch = [int]$Matches + 1
             $newTag = "v$major.$minor.$patch"
             $versionClean = "$major.$minor.$patch.0"
         } else {
@@ -47,25 +47,6 @@ jobs:
         "new_tag=$newTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
         "version_clean=$versionClean" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-    # NEU: Wandelt dein hochgeladenes PNG mittels Windows-Systemfunktionen direkt auf dem Server in ein echtes ICO um
-    - name: Convert PNG Icon to Windows ICO
-      shell: powershell
-      run: |
-        if (Test-Path ".\video-processing.png") {
-            Write-Host "PNG gefunden. Erzeuge treiberkonformes Windows-Icon..."
-            [Reflection.Assembly]::LoadWithPartialName("System.Drawing") | Out-Null
-            $bitmap = [System.Drawing.Bitmap]::FromFile(".\video-processing.png")
-            $hIcon = $bitmap.GetHicon()
-            $icon = [System.Drawing.Icon]::FromHandle($hIcon)
-            $stream = New-Object System.IO.FileStream(".\video-processing.ico", [System.IO.FileMode]::Create)
-            $icon.Save($stream)
-            $stream.Close()
-            $bitmap.Dispose()
-            Write-Host "Erfolgreich konvertiert: .\video-processing.ico"
-        } else {
-            Write-Host "WARNUNG: video-processing.png wurde im Repository nicht gefunden! EXE wird mit Standard-Icon gebaut."
-        }
-
     - name: Install PS2EXE Compiler
       shell: powershell
       run: |
@@ -75,11 +56,8 @@ jobs:
     - name: Compile PowerShell Script to EXE
       shell: powershell
       run: |
-        # ANPASSUNG: Der Compiler prüft nun, ob das frisch generierte ICO existiert und bettet es stabil in die Anwendung ein
-        $iconArg = @()
-        if (Test-Path ".\video-processing.ico") { $iconArg = @("-icon", ".\video-processing.ico") }
-        
-        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox_${{ steps.calculate_tag.outputs.new_tag }}.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox ${{ steps.calculate_tag.outputs.new_tag }}" -version "${{ steps.calculate_tag.outputs.version_clean }}" -company "Horst Zimmermann" -noConsole @iconArg
+        # Direktes Einbetten des hochgeladenen video_convert.ico über den -icon Parameter
+        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox_${{ steps.calculate_tag.outputs.new_tag }}.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox ${{ steps.calculate_tag.outputs.new_tag }}" -version "${{ steps.calculate_tag.outputs.version_clean }}" -company "Horst Zimmermann" -noConsole -icon ".\video_convert.ico"
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
@@ -88,7 +66,7 @@ jobs:
         name: Release ${{ steps.calculate_tag.outputs.new_tag }}
         body: |
           Automatischer Windows-Build fuer Version ${{ steps.calculate_tag.outputs.new_tag }}.
-          In dieser Version wurde dein individuelles Anwendungs-Icon direkt in die EXE-Datei integriert.
+          In diesem Release wurde das native Icon video_convert.ico erfolgreich in die Anwendung integriert.
         draft: false
         prerelease: false
         files: |
