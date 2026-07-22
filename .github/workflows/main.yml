@@ -32,10 +32,11 @@ jobs:
             }
         }
         
+        # Mathematisch saubere Trennung ohne String-Zusätze
         if ($latestTag -match 'v(\d+)\.(\d+)\.(\d+)') {
-            $major = [int]$Matches
-            $minor = [int]$Matches
-            $patch = [int]$Matches + 1
+            $major = [int]$Matches[1]
+            $minor = [int]$Matches[2]
+            $patch = [int]$Matches[3] + 1
             $newTag = "v$major.$minor.$patch"
             $versionClean = "$major.$minor.$patch.0"
         } else {
@@ -44,6 +45,8 @@ jobs:
         }
         
         Write-Host "Naechste Version berechnet: $newTag"
+        
+        # Übergabe ohne umschließende Formatierungen
         "new_tag=$newTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
         "version_clean=$versionClean" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
@@ -56,8 +59,12 @@ jobs:
     - name: Compile PowerShell Script to EXE
       shell: powershell
       run: |
-        # Direktes Einbetten des hochgeladenen video_convert.ico über den -icon Parameter
-        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox_${{ steps.calculate_tag.outputs.new_tag }}.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox ${{ steps.calculate_tag.outputs.new_tag }}" -version "${{ steps.calculate_tag.outputs.version_clean }}" -company "Horst Zimmermann" -noConsole -icon ".\video_convert.ico"
+        # Sichert die Versionszeichenfolge ab und entfernt eventuelle Whitespaces
+        $ver = "${{ steps.calculate_tag.outputs.version_clean }}".Trim()
+        $tag = "${{ steps.calculate_tag.outputs.new_tag }}".Trim()
+        
+        # Kompiliert die Anwendung mit dem echten video_convert.ico
+        ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox_$tag.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox $tag" -version $ver -company "Horst Zimmermann" -noConsole -icon ".\video_convert.ico"
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
@@ -66,7 +73,7 @@ jobs:
         name: Release ${{ steps.calculate_tag.outputs.new_tag }}
         body: |
           Automatischer Windows-Build fuer Version ${{ steps.calculate_tag.outputs.new_tag }}.
-          In diesem Release wurde das native Icon video_convert.ico erfolgreich in die Anwendung integriert.
+          Das native Icon video_convert.ico wurde erfolgreich in die Anwendung integriert.
         draft: false
         prerelease: false
         files: |
