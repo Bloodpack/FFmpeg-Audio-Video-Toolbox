@@ -67,10 +67,11 @@ jobs:
         ps2exe -inputFile ".\FFmpeg_Toolbox.ps1" -outputFile ".\FFmpeg_Toolbox_$tag.exe" -title "FFmpeg Audio Video Toolbox" -description "FFmpeg Audio Video Toolbox $tag" -version $ver -company "Horst Zimmermann" -noConsole -icon ".\video_convert.ico"
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ steps.calculate_tag.outputs.new_tag }}
         name: Release ${{ steps.calculate_tag.outputs.new_tag }}
+        generate_release_notes: true
         body: |
           Automatischer Windows-Build fuer Version ${{ steps.calculate_tag.outputs.new_tag }}.
           Das native Icon video_convert.ico wurde erfolgreich in die Anwendung integriert.

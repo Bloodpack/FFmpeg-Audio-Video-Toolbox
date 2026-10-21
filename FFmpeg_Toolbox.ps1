@@ -210,27 +210,48 @@ $buttonStart.Add_Click({
         [System.Windows.Forms.Application]::DoEvents()
     }
 
-    function Invoke-SilencedProcess($exePath, $argumentsString) {
+    function Invoke-SilencedProcess($exePath, $argumentsString, [switch]$CaptureOutput) {
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = $exePath
         $psi.Arguments = $argumentsString
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
         $psi.WindowStyle = "Hidden"
+        $psi.RedirectStandardOutput = $CaptureOutput.IsPresent
+        $psi.RedirectStandardError = $CaptureOutput.IsPresent
 
         $proc = New-Object System.Diagnostics.Process
         $proc.StartInfo = $psi
         
-        if ($global:AbortRequested) { return }
-        if ($proc.Start()) {
-            $global:ActiveJobProcess = $proc
-            while (!$proc.HasExited) {
-                [System.Windows.Forms.Application]::DoEvents()
-                Start-Sleep -Milliseconds 100
-                if ($global:AbortRequested) { break }
+        if ($global:AbortRequested) { return $null }
+        try {
+            if ($proc.Start()) {
+                $global:ActiveJobProcess = $proc
+                if ($CaptureOutput) {
+                    $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
+                    $stderrTask = $proc.StandardError.ReadToEndAsync()
+                }
+                while (!$proc.HasExited) {
+                    [System.Windows.Forms.Application]::DoEvents()
+                    Start-Sleep -Milliseconds 100
+                    if ($global:AbortRequested) { break }
+                }
+                $proc.WaitForExit()
+                $result = [PSCustomObject]@{
+                    ExitCode = $proc.ExitCode
+                    StandardOutput = if ($CaptureOutput) { $stdoutTask.Result } else { "" }
+                    StandardError = if ($CaptureOutput) { $stderrTask.Result } else { "" }
+                }
+            } else {
+                $result = [PSCustomObject]@{ ExitCode = -1; StandardOutput = ""; StandardError = "Prozess konnte nicht gestartet werden." }
             }
+        } catch {
+            $result = [PSCustomObject]@{ ExitCode = -1; StandardOutput = ""; StandardError = $_.Exception.Message }
+        } finally {
             $global:ActiveJobProcess = $null
+            $proc.Dispose()
         }
+        return $result
     }
 
     $totalFiles = $global:SelectedFiles.Count
@@ -256,7 +277,6 @@ $buttonStart.Add_Click({
             $outputDir = Join-Path $baseFolder "converted_CenterBoost"
             if (!(Test-Path $outputDir)) { New-Item -ItemType Directory -Path $outputDir | Out-Null }
             $outFile = Join-Path $outputDir $fileName
-            $tempAudio = Join-Path $outputDir "temp_boosted.eac3"
 
             Write-GuiLog "[$currentFileIndex/$totalFiles] Analysiere Tonspuren: $fileName..."
             $ffprobeOutput = & ffprobe -v error -select_streams a -show_entries stream=codec_name:stream_tags=language -of json "$filePath" 2>$null
@@ -301,19 +321,42 @@ $buttonStart.Add_Click({
             $codecName = [string]$audioStreams[$targetStreamIndex].codec_name
             if ($codecName -match "dts") { $codecOut = "dts"; $bitrateArgs = @("-b:a", "1536k") }
             elseif ($codecName -eq "ac3") { $codecOut = "ac3"; $bitrateArgs = @("-b:a", "640k") }
+            $tempAudio = Join-Path $outputDir "temp_boosted.$codecOut"
 
             Write-GuiLog "-> Booste deutsche Tonspur isoliert..."
             if (Test-Path $tempAudio) { Remove-Item $tempAudio -Force }
             
             $argsList = "-y -i `"$filePath`" -map 0:a:$targetStreamIndex -af `"pan=5.1|FL=FL|FR=FR|FC=1.4*FC|LFE=LFE|BL=BL|BR=BR`" -c:a $codecOut $($bitrateArgs -join ' ') -dialnorm -28 `"$tempAudio`""
-            Invoke-SilencedProcess "ffmpeg" $argsList
+            $ffmpegResult = Invoke-SilencedProcess "ffmpeg" $argsList -CaptureOutput
 
-            if ((Test-Path $tempAudio) -and !$global:AbortRequested) {
+            if (!$ffmpegResult -or $ffmpegResult.ExitCode -ne 0 -or !(Test-Path -LiteralPath $tempAudio) -or (Get-Item -LiteralPath $tempAudio).Length -eq 0) {
+                $exitCode = if ($ffmpegResult) { $ffmpegResult.ExitCode } else { "unbekannt" }
+                Write-GuiLog "FEHLER: FFmpeg konnte die deutsche Tonspur nicht erstellen (Exitcode: $exitCode)."
+                if ($ffmpegResult) {
+                    $errorDetails = ($ffmpegResult.StandardError + "`r`n" + $ffmpegResult.StandardOutput).Trim()
+                    if ($errorDetails.Length -gt 1200) { $errorDetails = $errorDetails.Substring(0, 1200) }
+                    if ($errorDetails) { Write-GuiLog $errorDetails }
+                }
+                if (Test-Path -LiteralPath $tempAudio) { Remove-Item -LiteralPath $tempAudio -Force }
+                continue
+            }
+
+            if (!$global:AbortRequested) {
                 Write-GuiLog "-> Muxe Spuren fehlerfrei mit mkvmerge zusammen..."
                 $mkvArgs = "-o `"$outFile`" --audio-tracks `"!$targetMkvTrackId`" `"$filePath`" --track-name `"0:Deutsch [Center-Boost]`" --language `"0:ger`" --default-track-flag `"0:yes`" --forced-display-flag `"0:yes`" `"$tempAudio`""
-                Invoke-SilencedProcess "mkvmerge" $mkvArgs
+                $mkvResult = Invoke-SilencedProcess "mkvmerge" $mkvArgs -CaptureOutput
                 if (Test-Path $tempAudio) { Remove-Item $tempAudio -Force }
-                Write-GuiLog "Erfolgreich gespeichert in 'converted_CenterBoost'!"
+                if (!$mkvResult -or $mkvResult.ExitCode -gt 1 -or !(Test-Path -LiteralPath $outFile) -or (Get-Item -LiteralPath $outFile).Length -eq 0) {
+                    $exitCode = if ($mkvResult) { $mkvResult.ExitCode } else { "unbekannt" }
+                    Write-GuiLog "FEHLER: MKVToolNix konnte keine gültige Ausgabedatei erstellen (Exitcode: $exitCode). Ziel: $outFile"
+                    if ($mkvResult) {
+                        $errorDetails = ($mkvResult.StandardError + "`r`n" + $mkvResult.StandardOutput).Trim()
+                        if ($errorDetails.Length -gt 1200) { $errorDetails = $errorDetails.Substring(0, 1200) }
+                        if ($errorDetails) { Write-GuiLog $errorDetails }
+                    }
+                } else {
+                    Write-GuiLog "Erfolgreich gespeichert: $outFile"
+                }
             }
         } else {
             $outputDirName = if ($comboBox.SelectedIndex -eq 1) { "converted_h264" } elseif ($comboBox.SelectedIndex -eq 2) { "converted_h265" } else { "converted_h265" }
