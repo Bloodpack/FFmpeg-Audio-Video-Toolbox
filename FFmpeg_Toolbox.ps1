@@ -281,7 +281,7 @@ $buttonStart.Add_Click({
             $argsList = "-y -i `"$filePath`" -map 0:a:$targetStreamIndex -af `"pan=5.1|FL=FL|FR=FR|FC=1.4*FC|LFE=LFE|BL=BL|BR=BR`" -c:a $codecOut $($bitrateArgs -join ' ') -dialnorm -28 `"$tempAudio`""
             Invoke-SilencedProcess "ffmpeg" $argsList
 
-            if (Test-Path $tempAudio -and !$global:AbortRequested) {
+            if ((Test-Path $tempAudio) -and !$global:AbortRequested) {
                 Write-GuiLog "-> Muxe Spuren fehlerfrei mit mkvmerge zusammen..."
                 $mkvArgs = "-o `"$outFile`" -A `"$filePath`" --track-name `"0:Deutsch [Center-Boost]`" --language `"0:ger`" --default-track-flag `"0:yes`" --forced-display-flag `"0:yes`" `"$tempAudio`""
                 Invoke-SilencedProcess "mkvmerge" $mkvArgs
