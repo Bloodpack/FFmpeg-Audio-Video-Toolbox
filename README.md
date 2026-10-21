@@ -26,7 +26,7 @@ Eine komfortable, grafische Windows-Oberfläche für PowerShell, um Audio- und V
   * Findet vollautomatisch die deutsche Tonspur, egal an welcher Position sie liegt.
   * Erhöht die Lautstärke des Center-Kanals um den Faktor **1.4** für deutlich bessere Sprachverständlichkeit bei Soundbars/Fernsehern.
   * Behält das Original-Format (DTS bleibt DTS, AC3 bleibt AC3) bei maximaler Bitrate bei.
-  * **Muxing via MKVToolNix:** Verwirft die alte Tonspur und setzt die optimierte Spur als Standard. Dolby Vision, HDR10+ und Untertitel bleiben zu 100% intakt.
+  * **Muxing via MKVToolNix:** Ersetzt nur die deutsche Tonspur durch die optimierte Spur. Alle anderen Tonspuren sowie Video, Dolby Vision, HDR10+ und Untertitel bleiben erhalten.
 
 * **⚡ H.264 Konvertierung via OpenCL [GPU]**
   * Hardwarebeschleunigtes Encodieren über die universelle OpenCL-Pipeline.

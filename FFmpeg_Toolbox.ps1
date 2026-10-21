@@ -259,21 +259,48 @@ $buttonStart.Add_Click({
             $tempAudio = Join-Path $outputDir "temp_boosted.eac3"
 
             Write-GuiLog "[$currentFileIndex/$totalFiles] Analysiere Tonspuren: $fileName..."
-            $ffprobeCmd = "ffprobe -v error -select_streams a -show_entries stream=index,codec_name:stream_tags=language -of csv=p=0 `"$filePath`""
-            $audioStreams = Invoke-Expression $ffprobeCmd 2>$null
-            
-            $targetStreamIndex = 0; $codecOut = "eac3"; $bitrateArgs = @("-b:a", "768k")
-            $loopIndex = 0
-            foreach ($stream in $audioStreams) {
-                if ($stream -match ",(deu|ger)") {
-                    $targetStreamIndex = $loopIndex
-                    $codecName = ($stream -split ",").ToString().Trim()
-                    if ($codecName -match "dts") { $codecOut = "dts"; $bitrateArgs = @("-b:a", "1536k") }
-                    elseif ($codecName -eq "ac3") { $codecOut = "ac3"; $bitrateArgs = @("-b:a", "640k") }
+            $ffprobeOutput = & ffprobe -v error -select_streams a -show_entries stream=codec_name:stream_tags=language -of json "$filePath" 2>$null
+            $probeInfo = ($ffprobeOutput -join "`n") | ConvertFrom-Json
+            $audioStreams = @($probeInfo.streams | Where-Object { $_ })
+
+            $targetStreamIndex = -1
+            for ($audioIndex = 0; $audioIndex -lt $audioStreams.Count; $audioIndex++) {
+                $language = [string]$audioStreams[$audioIndex].tags.language
+                if ($language -match '(?i)^(deu|ger|de)([-_].*)?$') {
+                    $targetStreamIndex = $audioIndex
                     break
                 }
-                $loopIndex++
             }
+
+            if ($targetStreamIndex -lt 0) {
+                Write-GuiLog "FEHLER: Keine deutsche Tonspur gefunden. Datei wird unverändert übersprungen."
+                continue
+            }
+
+            $mkvmergeOutput = & mkvmerge -J "$filePath" 2>$null
+            try {
+                $mkvInfo = ($mkvmergeOutput -join "`n") | ConvertFrom-Json -ErrorAction Stop
+            } catch {
+                Write-GuiLog "FEHLER: Tonspur-Informationen konnten nicht gelesen werden. Datei wird übersprungen."
+                continue
+            }
+            $mkvAudioTracks = @($mkvInfo.tracks | Where-Object { $_.type -eq "audio" })
+            if ($targetStreamIndex -ge $mkvAudioTracks.Count) {
+                Write-GuiLog "FEHLER: Deutsche Tonspur konnte nicht sicher zugeordnet werden. Datei wird übersprungen."
+                continue
+            }
+            $mkvTargetTrack = $mkvAudioTracks[$targetStreamIndex]
+            $mkvTargetLanguage = "$($mkvTargetTrack.properties.language) $($mkvTargetTrack.properties.language_ietf)"
+            if ($mkvTargetLanguage -notmatch '(?i)(^|\s)(deu|ger|de)([-_][a-z0-9]+)*(\s|$)') {
+                Write-GuiLog "FEHLER: Deutsche Tonspur konnte nicht sicher zugeordnet werden. Datei wird übersprungen."
+                continue
+            }
+            $targetMkvTrackId = $mkvTargetTrack.id
+
+            $codecOut = "eac3"; $bitrateArgs = @("-b:a", "768k")
+            $codecName = [string]$audioStreams[$targetStreamIndex].codec_name
+            if ($codecName -match "dts") { $codecOut = "dts"; $bitrateArgs = @("-b:a", "1536k") }
+            elseif ($codecName -eq "ac3") { $codecOut = "ac3"; $bitrateArgs = @("-b:a", "640k") }
 
             Write-GuiLog "-> Booste deutsche Tonspur isoliert..."
             if (Test-Path $tempAudio) { Remove-Item $tempAudio -Force }
@@ -283,7 +310,7 @@ $buttonStart.Add_Click({
 
             if ((Test-Path $tempAudio) -and !$global:AbortRequested) {
                 Write-GuiLog "-> Muxe Spuren fehlerfrei mit mkvmerge zusammen..."
-                $mkvArgs = "-o `"$outFile`" -A `"$filePath`" --track-name `"0:Deutsch [Center-Boost]`" --language `"0:ger`" --default-track-flag `"0:yes`" --forced-display-flag `"0:yes`" `"$tempAudio`""
+                $mkvArgs = "-o `"$outFile`" --audio-tracks `"!$targetMkvTrackId`" `"$filePath`" --track-name `"0:Deutsch [Center-Boost]`" --language `"0:ger`" --default-track-flag `"0:yes`" --forced-display-flag `"0:yes`" `"$tempAudio`""
                 Invoke-SilencedProcess "mkvmerge" $mkvArgs
                 if (Test-Path $tempAudio) { Remove-Item $tempAudio -Force }
                 Write-GuiLog "Erfolgreich gespeichert in 'converted_CenterBoost'!"
